@@ -2,27 +2,6 @@
 
 
 
-
-# Plot the ab line to show how the ROC curve deviates from randomness
-abline(0, 1, lty = 2)
-
-# Plot accuracy across cut points
-plot(performance(fit.pred, "acc"))
-
-
-
-# Plot the true positive rate and the false positive rate with the test data
-plot(performance(fit.pred2, "tpr", "fpr"))
-
-# Plot the abline to show how the ROC curve deviates from randomness
-abline(0, 1, lty = 2)
-
-
-
-# ---------------------------
-
-# 1
-
 # Load packages
 
 library(vcd)
@@ -35,28 +14,33 @@ library(caret)
 library(rpart)
 library(epiDisplay)
 
+# 1
+
 # Bring in tables and merge them on ID
 
+# old risk assessment items, by assessment
 YLS <- read.csv(file.choose(), header = T)
 
+# new later adjudication, by youth
 recidivism <- read.csv(file.choose(), header = T)
 
+# school events and status, by event
 school <- read.csv(file.choose(), header = T)
 
+# later disposition characteristic, by event
 dispo <- read.csv(file.choose(), header = T)
 
 
+# table merges
 YLS_recid <- merge(x=YLS,y=recidivism,by="ID",all.x=TRUE)
 
 YLS_recid_school <- merge(x=YLS_recid,y=school,by="ID",all.x=TRUE)
 
 YLS_recid_school_dispo <- merge(x=YLS_recid_school,y=dispo,by="ID",all.x=TRUE)
 
+
 # Write the merged tables to the disk
-
 write.csv(YLS_recid_school_dispo, file = "YLS_recid_school_dispo.csv")
-
-
 
 # Upload the merged table as data1
 # Drop the two confinement variables,
@@ -65,21 +49,21 @@ write.csv(YLS_recid_school_dispo, file = "YLS_recid_school_dispo.csv")
 
 data1 <- read.csv(file.choose(), header = T)
 
+# add zip code data, received later, by youth
 zip <- read.csv(file.choose(), header = T)
 
+# merge zip code data with other flat file
 data1 <- merge(x=data1,y=zip,by="ID",all.x=TRUE)
 
+# again save flat file for future reference
 write.csv(data1, file = "data1.csv")
 
+# reload flat file
 completedData<- read.csv(file.choose(), header = T)
 
 
-
-
 # 2
-
 # Use the rpart model to winnow down the number of variables from 175 to something less memory intensive
-
 # Extract variable names for the rpart model
 # Don’t include score or overall risk level
 # Leave out OneYearRecidivism, TwoYearRecidivism, and ThreeYearRecidivism
@@ -265,8 +249,8 @@ summary(RP1)
 # 3
 
 # Calculate accuracy and AUC of rpart model
-
 # Calculate predicted values for TRUE outcomes
+
 prediction1 <- predict(RP1, test, decision.values = TRUE,  probability = TRUE)[,2]
 
 # Create the prediction object with the test data and the predicted values
@@ -359,16 +343,10 @@ write.csv(completedData, file = "completedData.csv")
 
 
 
+# 6
 
-# 7 Correlations
-
-
-# Check correlations
-cor(completedData, method = c("kendall"))
-
-
-
-# 6 Splitting the data -- this step might not be necessary
+# Splitting the data -- this step might not be necessary
+# test set comes later from client
 
 # Split the data frame into training and testing sets
 
@@ -403,7 +381,7 @@ GRADE, family=binomial, data= completedData
 )
 
 
-#8 Calculate predictive accuracy
+# 8 Calculate predictive accuracy of GLM
 
 # Calculate AUC
 
@@ -457,7 +435,7 @@ GRADE	(cont. var.)	0.8	(0.72,0.89)	1.28	(1.04,1.59)	0.023	0.022
 
 
 
-# Confusion matrix
+# Confusion matrix for GLM
 
 predict <- predict(mod1, type = 'response')
 table(train$Recidivist, predict > 0.5)
@@ -500,7 +478,7 @@ $auc
 logistic.display(mod2)
 
 
-# 9 Create risk item variables
+# 9 Create risk item variables based on range and median
 
 completedData$Family_InadequateSup_act1 <- ifelse(completedData$Family_InadequateSup > 0, 1, 0)
 # 0,1
@@ -561,8 +539,6 @@ table(completedData$act_sum, completedData$Recidivist)
 
 
 
-
-
 # Calculate levels with cutpoints
 
 
@@ -588,10 +564,10 @@ prop.table(orbl1a, 2)
 Outcome_table <- table(completedData$act_sum, completedData$Recidivist)
 
 
+# Check model by race
 # Create a subset of the data of just Black_AA observations
 
 black_data<- completedData[ which(completedData$Black_AA==1), ]
-
 
 
 
@@ -613,7 +589,6 @@ auc_ROCR <- auc_ROCR@y.values[[1]]
 
 # Confusion matrix
 
-
 table(completedData$Recidivist, completedData$act_pred> 0.5)
 
 conmat <- table(completedData$Recidivist, completedData$act_pred> 0.5)
@@ -631,11 +606,7 @@ prop.table(conmat)
 #  0 0.5710345 0.2300725
 #  1 0.4289655 0.7699275
 
-
-
 # Tested other interim disposition variables, none related to Revidivist
-
-
 
 # Prototype 2
 
@@ -821,9 +792,6 @@ prop.table(conmat, 2)
 
 # Prototype 3, model specification
 
-
-
-
 # Create prototype 3 items
 
 completedData$Family_InadequateSup_act3 <- ifelse(completedData$Family_InadequateSup > 0, 1, 0)
@@ -936,11 +904,6 @@ table(completedData$act_sum3, data1$White)
 completedData$act_level3 <- ifelse(completedData$act_sum3 < 1, "L", (ifelse(completedData$act_sum3 > 5, "H", "M")))
 
 
-
-
-
-
-
 # Examine levels overall and by race
 
 mytable4 <- table(completedData$act_level4, data1$Black_AA)
@@ -999,9 +962,6 @@ auc_ROCR4@y.values[[1]]
 # [1] 0.6331247
 
 
-
-
-
 conmat3 <- table(completedData$Recidivist, completedData$act_pred3 > 0.5)
 
 conmat3
@@ -1015,8 +975,6 @@ prop.table(conmat3, 1)
 #        FALSE      TRUE
 #  0 0.6820702 0.3179298
 #  1 0.3654891 0.6345109
-
-
 
 
 # ####################
@@ -1115,6 +1073,8 @@ auc_ROCR3b@y.values[[1]]
 library(dplyr)
 library(ROCR)
 
+# include new child welfare data
+
 cpworkgroup <- read.csv(file.choose(), header = T)
 
 glimpse(cpworkgroup)
@@ -1157,6 +1117,8 @@ placements <- read.csv(file.choose(), header = T)
 glimpse(placements)
 head(placements)
 
+# and add placements data
+
 aggplace <- aggregate(placements,
                 by = list(placements$SSIS_ID),
                 FUN = length)
@@ -1185,13 +1147,15 @@ aggcpwdf<-  select(aggcpwdf, -SSIS.ID)
 
 aggcwwdf<-  select(aggcwwdf, -SSIS.ID)
 
-
+# merge social security data
 merged_df <-merge(x=client_id,y=aggcpwdf,by="SSIS.ID",all.x=TRUE)
 head(merged_df)
 
+# merge child welfare data
 merged_df <-merge(x=merged_df,y=aggcwwdf,by="SSIS.ID",all.x=TRUE)
 head(merged_df)
 
+# merge placeent data
 merged_df <-merge(x=merged_df,y=aggplacedf,by="SSIS.ID",all.x=TRUE)
 head(merged_df)
 
@@ -1381,7 +1345,7 @@ prop.table(table8)
 
 
 # *******************************************************
-# Add snap
+# Add SNAP data
 
 snapdf <- read.csv(file.choose(), header = T)
 
@@ -1526,7 +1490,6 @@ prop.table(table8)
 
 #**********************************************
 
-#-------------------------
 
 merged_data$new_var_sum <- (
 merged_data$cpwg_act3 +
@@ -1713,6 +1676,7 @@ outcomes <- read.csv(file.choose(), header = T)
 
 merged_data1 <- merge(x=merged_data1,y=outcomes,by="ID",all.x=TRUE)
 
+# Test with different outcoms
 
 pred_ROCR_3sf <- prediction(merged_data1$act_sum3s, merged_data2$FEL)
 roc_ROCR_3sf <- performance(pred_ROCR_3sf, measure = "tpr", x.measure = "fpr")
@@ -1735,7 +1699,7 @@ auc_ROCR_3sa <- performance(pred_ROCR_3sa, measure = "auc")
 auc_ROCR_3sa@y.values[[1]]
 
 #----------------------
-#-----------------------------
+
 #Subset checks
 
 
@@ -1857,8 +1821,6 @@ auc_ROCR_3s@y.values[[1]]
 
 write.csv(merged_data1, file = "merged_data1.csv")
 
-
-
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -1880,7 +1842,8 @@ prop.table(table_whiteRecidivist , 2)
 
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+# Test risk model against new test data, different time period
 
 library(vcd)
 library(mice)
@@ -1946,8 +1909,6 @@ step4= subset(step3, select=c(
 "cpworkgroup",
 "placement",
 "placementdetails"))
-
-
 
 
 
@@ -2054,31 +2015,20 @@ auc_ROCR <- performance(pred_ROCR, measure = "auc")
 auc_ROCR@y.values[[1]]
 
 
+
+# Plot the ab line to show how the ROC curve deviates from randomness
+abline(0, 1, lty = 2)
+
+# Plot accuracy across cut points
+plot(performance(fit.pred, "acc"))
+
+
+
+# Plot the true positive rate and the false positive rate with the test data
+plot(performance(fit.pred2, "tpr", "fpr"))
+
+# Plot the abline to show how the ROC curve deviates from randomness
+abline(0, 1, lty = 2)
+
+
 step4a<- read.csv(file.choose(), header = T)
-
-
-cor.test(step4a$one_two_recid, step4a$Family_InadequateSup)
-
-cor.test(step4a$one_two_recid, step4a$Educ_ProblemPeers)
-
-cor.test(step4a$one_two_recid, step4a$Educ_SchoolyardBehavior)
-
-cor.test(step4a$one_two_recid, step4a$CrimilHistoryDomain_Score)
-
-cor.test(step4a$one_two_recid, step4a$Attitude_Antisocial)
-
-cor.test(step4a$one_two_recid, step4a$PeerDomain_Score)
-
-cor.test(step4a$one_two_recid, step4a$enrolled)
-
-cor.test(step4a$one_two_recid, step4a$Felony_Interim_Sum)
-
-cor.test(step4a$one_two_recid, step4a$Age_at_Offense)
-
-cor.test(step4a$one_two_recid, step4a$drugs)
-
-cor.test(step4a$one_two_recid, step4a$IsDrugAlcoholAbuse)
-
-cor.test(step4a$one_two_recid, step4a$cpworkgroup)
-
-cor.test(step4a$one_two_recid, step4a$placement)
