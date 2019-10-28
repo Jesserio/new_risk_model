@@ -1,0 +1,2084 @@
+# Risk R Syntax
+
+
+
+
+# Plot the ab line to show how the ROC curve deviates from randomness
+abline(0, 1, lty = 2)
+
+# Plot accuracy across cut points
+plot(performance(fit.pred, "acc"))
+
+
+
+# Plot the true positive rate and the false positive rate with the test data
+plot(performance(fit.pred2, "tpr", "fpr"))
+
+# Plot the abline to show how the ROC curve deviates from randomness
+abline(0, 1, lty = 2)
+
+
+
+# ---------------------------
+
+# 1
+
+# Load packages
+
+library(vcd)
+library(mice)
+library(dplyr)
+library(VIM)
+library(lattice)
+library(ROCR)
+library(caret)
+library(rpart)
+library(epiDisplay)
+
+# Bring in tables and merge them on ID
+
+YLS <- read.csv(file.choose(), header = T)
+
+recidivism <- read.csv(file.choose(), header = T)
+
+school <- read.csv(file.choose(), header = T)
+
+dispo <- read.csv(file.choose(), header = T)
+
+
+YLS_recid <- merge(x=YLS,y=recidivism,by="ID",all.x=TRUE)
+
+YLS_recid_school <- merge(x=YLS_recid,y=school,by="ID",all.x=TRUE)
+
+YLS_recid_school_dispo <- merge(x=YLS_recid_school,y=dispo,by="ID",all.x=TRUE)
+
+# Write the merged tables to the disk
+
+write.csv(YLS_recid_school_dispo, file = "YLS_recid_school_dispo.csv")
+
+
+
+# Upload the merged table as data1
+# Drop the two confinement variables,
+# year two and year three, since they are all zeros
+# ConfineTimeInYearTwo + ConfineTimeInYearThree
+
+data1 <- read.csv(file.choose(), header = T)
+
+zip <- read.csv(file.choose(), header = T)
+
+data1 <- merge(x=data1,y=zip,by="ID",all.x=TRUE)
+
+write.csv(data1, file = "data1.csv")
+
+completedData<- read.csv(file.choose(), header = T)
+
+
+
+
+# 2
+
+# Use the rpart model to winnow down the number of variables from 175 to something less memory intensive
+
+# Extract variable names for the rpart model
+# Don’t include score or overall risk level
+# Leave out OneYearRecidivism, TwoYearRecidivism, and ThreeYearRecidivism
+
+names(YLS_recid_school_dispo)
+
+# Specify the rpart model with the full data set
+
+RP1 <- rpart(Recidivist ~
+Custodial +
+Present_weapons +
+Present_theft +
+Employed +
+PreScreenScore +
+Family_DifficultBehavior +
+Family_InconsistentParenting +
+Family_PoorRelationshipMother +
+Educ_Disruptive +
+Educ_LowAchievement +
+Educ_ProblemTeachers +
+Educ_Employment +
+Peer_DelinquentAcquaintance +
+Peer_FewPositiveAcquaintances +
+Peer_Strengths +
+SubAb_ChronicDrug +
+SubAb_UseInterferes +
+SubAb_Strengths +
+Leisure_TimeUse +
+Leisure_Strengths +
+PersBeh_PhysicalAggress +
+PersBeh_ShortAttention +
+PersBeh_InadequateGuilt +
+PersBeh_Strengths +
+Attitude_0tSeekingHelp +
+Attitude_DefiesAuthority +
+Attitude_Strengths +
+IsEmotionalDistress +
+IsMaritalConflict +
+IsUncooperativeParents +
+IsAbusiveFather +
+IsSigFamilyTrauma +
+IsYouthAdverseLivingConditions +
+IsYouthCommunicationsProblem +
+IsYouthCulturalEthnic +
+IsYouthConductDisorder +
+IsYouthEngagesInDenial +
+IsYouthFinancialAccommodation +
+IsYouthGender +
+IsYouthHistAssaultAuthorityFigures +
+IsYouthHistEscape +
+IsYouthHistRunningAway +
+IsYouthHistWeaponUse +
+IsYouthLearningDisability +
+IsYouthLowSelfEsteem +
+IsYouthParenting +
+IsYouthPhysicalDisability +
+IsYouthPoorSocialSkills +
+IsYouthProtectionIssues +
+IsYouthSelfManagement +
+IsYouthSuicide +
+IsYouthUnderachievement +
+IsYouthVictimNeglect +
+IsYouthWitnessDomesticViolence +
+IsYouthOther +
+FamilyDomain_Score +
+PeerDomain_Score +
+LeisureDomain_Score +
+AttitudesDomain_Score +
+Dist_Minneapolis +
+Dist_Bloomington +
+Dist_Brooklyn_Center +
+Withdrew +
+Transferred +
+School_CATEGORY1ANSWER +
+Age +
+AIAN +
+Two_Or +
+White +
+Hispanic +
+GM +
+Assault +
+Drugs +
+Robbery +
+Felony_Adjudiciations_IO +
+Felony_Dismissal_Aquittal_IO +
+GM_Interim_Dispos_IO +
+Misd_Adjudiciations_IO +
+Misd_Dismissal_Aquittal_IO +
+Petty_Interim_Dispos_IO +
+PDVariable +
+Petty_Cal_Current +
+AgeAtAssessment +
+Present_Assualt +
+Present_buglary +
+Present_Drugs +
+SchoolEducation +
+Family_InadequateSup +
+Family_InappropriateDiscipline +
+Family_PoorRelationshipFather +
+Family_Strengths +
+Educ_SchoolyardBehavior +
+Educ_ProblemPeers +
+Educ_Truancy +
+Educ_Strengths +
+Peer_DelinquentFriends +
+Peer_FewPositiveFriends +
+SubAb_OccasionalDrug +
+SubAb_ChronicAlcohol +
+SubAb_UseLinkedOffenses +
+Leisure_LimitedOrganized +
+Leisure_0PersonalInterests +
+PersBeh_InflatedSelf +
+PersBeh_Tantrums +
+PersBeh_PoorFrustration +
+PersBeh_VerbalAggress +
+Attitude_Antisocial +
+Attitude_RejectHelp +
+Attitude_Callous +
+IsChronicHistoryOffenses +
+IsDrugAlcoholAbuse +
+IsFinanceAccommodProb +
+IsCulturalEthnicIssues +
+IsAbusiveMother +
+IsFamilyParentsOther +
+IsYouthAnxious +
+IsYouthCrueltyAnimals +
+IsYouthDepressed +
+IsYouthDiagnosisOfPsychosis +
+IsYouthFetalAlcohol +
+IsYouthGang +
+IsYouthHealthProblems +
+IsYouthHistBullying +
+IsYouthHistFireSetting +
+IsYouthHistSexualPhysicalAssault +
+IsYouthInappropriateSexualActivity +
+IsYouthLowIntelligence +
+IsYouthManipulative +
+IsYouthPeersOutsideAgeRange +
+IsYouthProblemSolvingSkills +
+IsYouthPregnancy +
+IsYouthRacistSexistAttitudes +
+IsYouthShyWithdrawn +
+IsYouthThirdPartyThreat +
+IsYouthVictimBullying +
+IsYouthVictimPhysicalSexualAbuse +
+IsYouthOtherMentalHealth +
+CriminalHistoryDomain_Score +
+EducationDomain_Score +
+SubstanceAbuseDomain_Score +
+PersonalityDomain_Score +
+Dist_Anoka_Hennepin +
+District_287 +
+GRADE +
+Enrolled +
+ATTENDANCE +
+School_CATEGORY3ANSWER +
+Male +
+Black_AA +
+Other +
+Asian +
+Felony +
+Misd +
+Weapons +
+Theft +
+LevelofOffense +
+Felony_Interim_Dispos_IO +
+GM_Adjudiciations_IO +
+GM_Dismissal_Aquittal_IO +
+Misd_Interim_Dispos_IO +
+Petty_Adjudiciations_IO +
+Petty_Dismissal_Aquittal_IO +
+Petty_Cal_Count +
+Prior_Petty_Cal,
+ method = "class", data = data1)
+
+# Use summary(RP1) to show the model and all the variable splits
+
+summary(RP1)
+
+# Part of the output shows most important variables for node homogeneity
+
+
+# 3
+
+# Calculate accuracy and AUC of rpart model
+
+# Calculate predicted values for TRUE outcomes
+prediction1 <- predict(RP1, test, decision.values = TRUE,  probability = TRUE)[,2]
+
+# Create the prediction object with the test data and the predicted values
+fit.pred <- prediction(prediction1,test$Recidivist)
+
+# Plot the true positive rate against the false positive rate, the ROC curve
+plot(performance(fit.pred, "tpr", "fpr"))
+
+# Plot the ab line to show how the ROC curve deviates from randomness
+abline(0, 1, lty = 2)
+
+# Plot accuracy across cut points
+plot(performance(fit.pred, "acc"))
+
+# Calculate the AUC from the prediction object with predicted values and actual values
+auc_ROCR <- performance(fit.pred, measure = "auc")
+
+# Print the AUC value
+auc_ROCR
+
+# [1] 0.662529
+
+
+
+# 4 Subset the data frame
+
+# Create subset of the full dataset based on results of the rpart model
+
+data2 = subset(data1, select=c(
+"Recidivist",
+"OneYearRecidivism",
+"Enrolled",
+"AgeAtAssessment",
+"Age",
+"AttitudesDomain_Score",
+"Attitude_Antisocial",
+"EducationDomain_Score",
+"GRADE",
+"PeerDomain_Score",
+"Peer_FewPositiveAcquaintances",
+"Attitude_0tSeekingHelp",
+"Peer_FewPositiveFriends",
+"Transferred",
+"Attitude_DefiesAuthority",
+"Asian",
+"Attitude_RejectHelp",
+"Educ_SchoolyardBehavior",
+"Educ_Disruptive",
+"Educ_Employment",
+"Misd",
+"Peer_DelinquentFriends",
+"Felony",
+"Family_InadequateSup",
+"IsYouthLowSelfEsteem",
+"LevelofOffense",
+"Felony_Adjudiciations_IO",
+"Educ_ProblemTeachers",
+"Misd_Adjudiciations_IO",
+"Felony_Interim_Dispos_IO",
+"Educ_ProblemPeers",
+"IsYouthSuicide",
+"CriminalHistoryDomain_Score",
+"Black_AA",
+"Drugs",
+"IsDrugAlcoholAbuse"
+))
+
+
+# 5 Impute Missing Data
+
+# Look at pattern of missingness
+md.pattern(data2)
+
+# Imputing missing values using mice
+mice_imputes = mice(data2, m=5, maxit = 40)
+
+# Look at summary of imputation
+summary(mice_imputes)
+
+# Show what methods were used for imputing
+mice_imputes$method
+
+# Complete the imputation into a new data frame
+completedData <- complete(mice_imputes,1)
+
+# Plot distributions of variable to compare actual values with imputed variables. Doesn’t show much for dummy variables.
+xyplot(mice_imputes, AgeAtAssessment ~ CriminalHistoryDomain_Score| .imp, pch = 20, cex = 1.4)
+
+write.csv(completedData, file = "completedData.csv")
+
+
+
+
+# 7 Correlations
+
+
+# Check correlations
+cor(completedData, method = c("kendall"))
+
+
+
+# 6 Splitting the data -- this step might not be necessary
+
+# Split the data frame into training and testing sets
+
+trainIndex = createDataPartition(completedData$Recidivist,
+     p=0.7, list=FALSE,times=1)
+train = completedData[trainIndex,]
+test = completedData[-trainIndex,]
+
+
+# 7 Fit binomial logistic regression model
+
+mod1 <- glm(Recidivist ~
+Family_InadequateSup +
+Attitude_DefiesAuthority +
+Educ_ProblemPeers +
+Educ_Disruptive +
+Transferred +
+Black_AA +
+EducationDomain_Score +
+Peer_FewPositiveAcquaintances +
+Peer_FewPositiveFriends +
+Educ_SchoolyardBehavior +
+AttitudesDomain_Score +
+CriminalHistoryDomain_Score +
+Attitude_Antisocial +
+Peer_DelinquentFriends +
+PeerDomain_Score +
+Enrolled +
+Felony_Interim_Dispos_IO +
+AgeAtAssessment +
+GRADE, family=binomial, data= completedData
+)
+
+
+#8 Calculate predictive accuracy
+
+# Calculate AUC
+
+lroc(mod1)
+$auc
+# [1] 0.7783171
+
+# Calculate odds ratios and adjusted odds ratios
+
+logistic.display(mod1)
+		crude	OR(95%CI)	adj.	OR(95%CI)	P(Wald's test)	P(LR-test)
+Family_InadequateSup:	1 vs 0	2.05	(1.57,2.69)	1.14	(0.81,1.61)	0.454	0.455
+
+Attitude_DefiesAuthority:	1 vs 0	2.13	(1.61,2.83)	0.76	(0.47,1.24)	0.272	0.27
+
+Educ_ProblemPeers:	1 vs 0	2.22	(1.69,2.9)	1.34	(0.9,1.99)	0.156	0.156
+
+Educ_Disruptive:	1 vs 0	2.12	(1.62,2.78)	1.13	(0.74,1.75)	0.567	0.567
+
+Transferred:	1 vs 0	2.41	(1.83,3.17)	0.98	(0.67,1.44)	0.915	0.915
+
+Black_AA:	1 vs 0	2.49	(1.89,3.3)	1.75	(1.27,2.43)	< 0.001	< 0.001
+
+EducationDomain_Score	(cont. var.)	1.33	(1.23,1.43)	0.88	(0.74,1.03)	0.115	0.114
+
+Peer_FewPositiveAcquaintances:	1 vs 0	2.2	(1.68,2.89)	0.49	(0.14,1.67)	0.253	0.251
+
+Peer_FewPositiveFriends:	1 vs 0	2.21	(1.69,2.89)	0.82	(0.24,2.84)	0.756	0.756
+
+Educ_SchoolyardBehavior:	1 vs 0	2.61	(1.96,3.47)	1.77	(1.2,2.63)	0.004	0.004
+
+AttitudesDomain_Score	(cont. var.)	1.42	(1.28,1.57)	1.01	(0.82,1.25)	0.903	0.903
+
+CriminalHistoryDomain_Score	(cont. var.)	1.4	(1.26,1.54)	1.25	(1.09,1.42)	0.001	0.001
+
+Attitude_Antisocial:	1 vs 0	2.59	(1.97,3.4)	1.34	(0.87,2.07)	0.184	0.184
+
+Peer_DelinquentFriends:	1 vs 0	3.65	(2.64,5.05)	0.87	(0.19,4.02)	0.862	0.862
+
+PeerDomain_Score	(cont. var.)	1.46	(1.33,1.6)	1.72	(0.76,3.88)	0.194	0.197
+
+Enrolled:	1 vs 0	0.3	(0.22,0.4)	0.45	(0.3,0.68)	< 0.001	< 0.001
+
+Felony_Interim_Dispos_IO	(cont. var.)	0.28	(0.19,0.43)	0.42	(0.26,0.67)	< 0.001	< 0.001
+
+AgeAtAssessment	(cont. var.)	0.75	(0.67,0.83)	0.59	(0.47,0.74)	< 0.001	< 0.001
+
+GRADE	(cont. var.)	0.8	(0.72,0.89)	1.28	(1.04,1.59)	0.023	0.022
+
+
+
+
+
+# Confusion matrix
+
+predict <- predict(mod1, type = 'response')
+table(train$Recidivist, predict > 0.5)
+
+  #  FALSE TRUE
+  # 0   236  154
+  # 1    95  409
+
+
+
+# 8 GLM model with fewer variables
+
+mod2 <- glm(Recidivist ~
+Family_InadequateSup +
+Educ_ProblemPeers +
+EducationDomain_Score +
+Educ_SchoolyardBehavior +
+CriminalHistoryDomain_Score +
+Attitude_Antisocial +
+PeerDomain_Score +
+Enrolled +
+Felony_Interim_Dispos_IO +
+AgeAtAssessment +
+GRADE, family=binomial, data= completedData
+)
+
+
+
+# AUC and confusion matrix
+
+predict <- predict(mod2, type = 'response')
+table(completedData$Recidivist, predict > 0.5)
+
+lroc(mod2)
+
+$auc
+# [1] 0.765873
+
+
+logistic.display(mod2)
+
+
+# 9 Create risk item variables
+
+completedData$Family_InadequateSup_act1 <- ifelse(completedData$Family_InadequateSup > 0, 1, 0)
+# 0,1
+
+completedData$Educ_ProblemPeers_act1 <- ifelse(completedData$Educ_ProblemPeers > 0, 1, 0)
+# 0, 1
+
+completedData$Educ_SchoolyardBehavior_act1 <- ifelse(completedData$Educ_SchoolyardBehavior > 0, 1, 0)
+# 0, 1
+
+completedData$CriminalHistoryDomain_Score_act1 <- ifelse(completedData$CriminalHistoryDomain_Score > 1, 1, 0)
+
+#  - 5, median = 1.00
+
+completedData$Attitude_Antisocial_act1 <- ifelse(completedData$Attitude_Antisocial > 0, 1, 0)
+# 0, 1
+
+completedData$PeerDomain_Score_act1 <- ifelse(completedData$PeerDomain_Score > 0, 2, 0)
+# 0 - 4, median = 2.000
+
+completedData$Enrolled_act1 <- ifelse(completedData$Enrolled > 0, 1, 0)
+# 0, 1
+
+completedData$Felony_Interim_Dispos_IO_act1 <- ifelse(completedData$Felony_Interim_Dispos_IO > 0, 1, 0)
+# 0 - 3, median = 0
+
+completedData$AgeAtAssessment_act1 <- ifelse(completedData$AgeAtAssessment > 16, 1, 0)
+
+# 11.98 - 19.64, median = 16.53
+
+
+# Add up item scores for an overall score
+
+completedData$act_sum <- (completedData$Family_InadequateSup_act1 + completedData$Educ_ProblemPeers_act1 + completedData$Educ_SchoolyardBehavior_act1 + completedData$CriminalHistoryDomain_Score_act1 + completedData$Attitude_Antisocial_act1 + completedData$PeerDomain_Score_act1 - completedData$Enrolled_act1 - completedData$Felony_Interim_Dispos_IO_act1 - completedData$AgeAtAssessment_act1)
+
+
+# Examine scores overall and by race
+
+mytable1 <- table(completedData$act_sum, completedData$Black_AA)
+
+mytable2 <- table(completedData$act_sum, data1$White)
+
+mytable3 <- table(completedData$act_sum, completedData$Recidivist)
+
+
+mytable3b <- table(black_data$act_sum, black_data$Recidivist)
+prop.table(mytable3b, 1)
+
+
+prop.table(mytable1, 2)
+
+prop.table(mytable2, 2)
+
+prop.table(mytable3)
+
+table(completedData$act_sum, completedData$Recidivist)
+
+
+
+
+
+
+# Calculate levels with cutpoints
+
+
+completedData$act_level <- ifelse (completedData$act_sum < 3, "L", (ifelse(completedData$act_sum > 4, "H", "M")))
+
+completedData$act_levela <- ifelse(completedData$act_sum < 3, "L", (ifelse(completedData$act_sum > 5, "H", "M")))
+
+
+# Examine levels overall and by race
+
+prop.table(table(completedData$act_level))
+
+mytable4 <- table(completedData$act_level, completedData$Black_AA)
+
+prop.table(mytable4, 2)
+
+mytable5 <- table(completedData$act_level, data1$White)
+prop.table(mytable5, 2)
+
+orbl1a <- table(completedData$act_levela, completedData$Recidivist)
+prop.table(orbl1a, 2)
+
+Outcome_table <- table(completedData$act_sum, completedData$Recidivist)
+
+
+# Create a subset of the data of just Black_AA observations
+
+black_data<- completedData[ which(completedData$Black_AA==1), ]
+
+
+
+
+# Prediction accuracy, ROC, AUC, and confusion matrix
+
+completedData$act_pred <- ifelse(completedData$act_sum < 4, 0 , 1)
+
+
+pred_ROCR <- prediction(completedData$act_pred, completedData$Recidivist)
+
+roc_ROCR <- performance(pred_ROCR, measure = "tpr", x.measure = "fpr")
+
+plot(roc_ROCR, main = "ROC curve", colorize = T)
+auc_ROCR <- performance(pred_ROCR, measure = "auc")
+auc_ROCR <- auc_ROCR@y.values[[1]]
+
+# [1] 0.6713476
+
+
+# Confusion matrix
+
+
+table(completedData$Recidivist, completedData$act_pred> 0.5)
+
+conmat <- table(completedData$Recidivist, completedData$act_pred> 0.5)
+
+ conmat
+
+#    FALSE TRUE
+#  0   414  127
+#  1   311  425
+
+
+prop.table(conmat)
+
+#        FALSE      TRUE
+#  0 0.5710345 0.2300725
+#  1 0.4289655 0.7699275
+
+
+
+# Tested other interim disposition variables, none related to Revidivist
+
+
+
+# Prototype 2
+
+
+# Specify the logistic model
+
+mod3 <- glm(Recidivist ~
+Family_InadequateSup +
+Educ_ProblemPeers +
+Educ_SchoolyardBehavior +
+CriminalHistoryDomain_Score +
+Attitude_Antisocial +
+PeerDomain_Score +
+Enrolled +
+Felony_Interim_Dispos_IO +
+AgeAtAssessment +
+Drugs,
+ family=binomial, data= completedData
+)
+
+
+
+# Create the confusion matrix and AUC for the logit model
+
+predict <- predict(mod3, type = 'response')
+table(completedData$Recidivist, predict > 0.5)
+
+#    FALSE TRUE
+#  0   297  244
+#  1   144  592
+
+
+lroc(mod3)
+
+$auc
+# [1] 0.7508225
+
+
+# Calculate and display the crude and adjusted odds ratios for each variable
+
+logistic.display(mod3)
+
+
+# Create prototype 2 from logistic results
+
+completedData$Family_InadequateSup_act2 <- ifelse(completedData$Family_InadequateSup > 0, 1, 0)
+# 0,1
+
+completedData$Educ_ProblemPeers_act2 <- ifelse(completedData$Educ_ProblemPeers > 0, 1, 0)
+# 0, 1
+
+completedData$Educ_SchoolyardBehavior_act2 <- ifelse(completedData$Educ_SchoolyardBehavior > 0, 2, 0)
+# 0, 1
+
+completedData$CriminalHistoryDomain_Score_act2 <- ifelse(completedData$CriminalHistoryDomain_Score > 1, 1, 0)
+
+# 0 - 5, median = 1.00
+
+completedData$Attitude_Antisocial_act2 <- ifelse(completedData$Attitude_Antisocial > 0, 1, 0)
+# 0, 1
+
+completedData$PeerDomain_Score_act2 <- ifelse(completedData$PeerDomain_Score > 0, 1, 0)
+# 0 - 4, median = 2.000
+
+completedData$Enrolled_act2 <-
+ ifelse(completedData$Enrolled > 0, 2, 0)
+# 0, 1
+
+completedData$Felony_Interim_Dispos_IO_act2 <- ifelse(completedData$Felony_Interim_Dispos_IO > 0, 1, 0)
+# 0 - 3, median = 0
+
+completedData$AgeAtAssessment_act2 <- ifelse(completedData$AgeAtAssessment > 16, 1, 0)
+# 11.98 - 19.64, median = 16.53
+
+completedData$Drugs_act2 <- ifelse(completedData$Drugs > 0, 1, 0)
+# 0, 1
+
+
+# Sum items into overall score
+
+completedData$act_sum2 <-(
+completedData$Family_InadequateSup_act +
+completedData$Educ_ProblemPeers_act +
+completedData$Educ_SchoolyardBehavior_act +
+completedData$CriminalHistoryDomain_Score_act +
+completedData$Attitude_Antisocial_act +
+completedData$PeerDomain_Score_act -
+completedData$Enrolled_act -
+completedData$Felony_Interim_Dispos_IO_act -
+completedData$AgeAtAssessment_act +
+completedData$Drugs
+)
+
+# Examine scores overall and by race
+
+mytable3 <- table(completedData$act_sum2)
+prop.table(mytable3)
+
+
+
+mytable1 <- table(completedData$act_sum2, data1$Black_AA)
+
+mytable2 <- table(completedData$act_sum2, data1$White)
+
+
+prop.table(mytable1, 2)
+
+prop.table(mytable2, 2)
+
+table(completedData$act_sum2, data1$Black_AA)
+
+table(completedData$act_sum2, data1$White)
+
+
+
+#Create levels with cutoffs
+
+completedData$act_level2 <- ifelse(completedData$act_sum2 < 1, "L", (ifelse(completedData$act_sum2 > 4, "H", "M")))
+
+
+# Examine levels overall and by race
+
+orbl2 <- table(completedData$act_level2, completedData$Recidivist)
+prop.table(orbl2, 1)
+
+outcome_table2 <- table(completedData$act_sum, completedData$Recidivist)
+
+black_data2<- completedData[ which(completedData$Black_AA==1), ]
+
+orbl_black2 <- table(black_data2$act_level2, black_data2$Recidivist)
+
+prop.table(orbl_black2, 1)
+
+
+mytable4 <- table(completedData$act_level2, completedData$Black_AA)
+
+prop.table(mytable4, 1)
+
+mytable5 <- table(completedData$act_level2, data1$White)
+prop.table(mytable5, 2)
+
+mytable6 <- table(completedData$act_level2)
+prop.table(mytable6)
+
+
+# Calculated predicted values for ROC
+# Calculate ROC, AUC, and confusion matrix
+
+completedData$act_pred2 <- ifelse(completedData$act_sum < 4, 0 , 1)
+
+
+pred_ROCR2 <- prediction(completedData$act_pred, completedData$Recidivist)
+
+roc_ROCR2 <- performance(pred_ROCR2, measure = "tpr", x.measure = "fpr")
+
+plot(roc_ROCR2, main = "ROC curve", colorize = T)
+auc_ROCR2 <- performance(pred_ROCR2, measure = "auc")
+auc_ROCR2@y.values[[1]]
+
+# [1] 0.6411951
+
+table(completedData$Recidivist, completedData$act_pred> 0.5)
+
+conmat2 <- table(completedData$Recidivist, completedData$act_pred2> 0.5)
+
+
+conmat2
+
+#    FALSE TRUE
+#  0   449   92
+#  1   403  333
+
+
+
+prop.table(conmat, 2)
+
+#        FALSE      TRUE
+#  0 0.5269953 0.2164706
+#  1 0.4730047 0.7835294
+
+
+
+
+# Prototype 3, model specification
+
+
+
+
+# Create prototype 3 items
+
+completedData$Family_InadequateSup_act3 <- ifelse(completedData$Family_InadequateSup > 0, 1, 0)
+# 0,1
+
+completedData$Educ_ProblemPeers_act3 <- ifelse(completedData$Educ_ProblemPeers > 0, 1, 0)
+# 0, 1
+
+completedData$Educ_SchoolyardBehavior_act3 <- ifelse(completedData$Educ_SchoolyardBehavior > 0, 2, 0)
+# 0, 1
+
+completedData$CriminalHistoryDomain_Score_act3 <- ifelse(completedData$CriminalHistoryDomain_Score < 1, 0,
+ifelse(completedData$CriminalHistoryDomain_Score < 4, 1, 2))
+# 0 - 5, median = 1.00
+
+completedData$Attitude_Antisocial_act3 <- ifelse(completedData$Attitude_Antisocial > 0, 1, 0)
+# 0, 1
+
+
+completedData$PeerDomain_Score_act3 <- ifelse(completedData$PeerDomain_Score < 2, 0,
+ifelse(completedData$PeerDomain_Score < 4, 1, 2))
+# 0 - 4, median = 2.000
+
+completedData$Enrolled_act3 <- ifelse(completedData$Enrolled > 0, 3, 0)
+# 0, 1
+
+completedData$Felony_Interim_Dispos_IO_act3 <- ifelse(completedData$Felony_Interim_Dispos_IO > 0, 2, 0)
+# 0 - 3, median = 0
+
+completedData$Age_act3 <- ifelse(completedData$Age > 16, 1, 0)
+# 11.98 - 19.64, median = 16.53
+
+completedData$Drugs_act3 <- ifelse(completedData$Drugs > 0, 1, 0)
+# 0, 1
+
+completedData$IsDrugAlcoholAbuse_act3 <- ifelse(completedData$IsDrugAlcoholAbuse > 0, 1, 0)
+# 0, 1
+
+
+# create a sum score
+
+completedData$act_sum3 <-(
+completedData$Family_InadequateSup_act3 +
+completedData$Educ_ProblemPeers_act3 +
+completedData$Educ_SchoolyardBehavior_act3 +
+completedData$CriminalHistoryDomain_Score_act3 +
+completedData$Attitude_Antisocial_act3 +
+completedData$PeerDomain_Score_act3 -
+completedData$Enrolled_act3 -
+completedData$Felony_Interim_Dispos_IO_act3 -
+completedData$Age_act3 +
+completedData$Drugs_act3 +
+completedData$IsDrugAlcoholAbuse_act3
+)
+
+
+# Create subsets of the data
+
+black_data <- completedData[ which(completedData$Black_AA==1), ]
+
+white_data <- completedData[ which(completedData$White==1), ]
+
+older_data <- completedData[ which(completedData$Age > 17), ]
+
+
+# Examine scores overall and by race
+
+mytable3 <- table(completedData$act_sum3)
+prop.table(mytable3)
+
+mytable1 <- table(completedData$act_sum3, data1$Black_AA)
+
+mytable2 <- table(completedData$act_sum3, data1$White)
+
+mytable4 <- table(completedData$act_sum3, completedData$Recidivist)
+
+prop.table(mytable4, 1)
+
+mytable4a <- table(completedData$act_sum3, completedData$OneYearRecidivism)
+
+prop.table(mytable4a, 1)
+
+mytable4b <- table(black_data$act_sum3, black_data$Recidivist)
+prop.table(mytable4b, 1)
+
+mytable4bb <- table(black_data$act_sum3, black_data$OneYearRecidivism)
+prop.table(mytable4bb, 1)
+
+mytable4c <- table(white_data$act_sum3, white_data$Recidivist)
+prop.table(mytable4c, 1)
+
+mytable4d <- table(older_data$act_sum3, older_data$Recidivist)
+prop.table(mytable4d, 1)
+
+mytable4cc <- table(white_data$act_sum3, white_data$OneYearRecidivism)
+prop.table(mytable4cc, 1)
+
+prop.table(mytable1, 2)
+
+prop.table(mytable2, 2)
+
+table(completedData$act_sum3, data1$Black_AA)
+
+table(completedData$act_sum3, data1$White)
+
+
+
+#Create levels with cutoffs
+
+completedData$act_level3 <- ifelse(completedData$act_sum3 < 1, "L", (ifelse(completedData$act_sum3 > 5, "H", "M")))
+
+
+
+
+
+
+
+# Examine levels overall and by race
+
+mytable4 <- table(completedData$act_level4, data1$Black_AA)
+prop.table(mytable4, 2)
+
+mytable5 <- table(completedData$act_level4, data1$White)
+prop.table(mytable5, 2)
+
+mytable6 <- table(completedData$act_level4)
+prop.table(mytable6)
+
+orbl <- table(completedData$act_level3, completedData4$Recidivist)
+
+orbla <- table(completedData$act_level3, completedData4$OneYearRecidivism)
+
+orbl_black3 <- table(black_data$act_level3, black_data3$Recidivist)
+
+
+summary(completedData$act_sum3)
+
+
+
+# Calculate AUC with Recidivist
+
+completedData$act_pred3 <- ifelse(completedData$act_sum3 < 3, 0 , 1)
+
+# completedData$act_pred3a <- ifelse(completedData$act_sum3 < 2, 0 , 1)
+
+pred_ROCR3 <- prediction(completedData$act_pred3, completedData$Recidivist)
+
+# pred_ROCR3a <- prediction(completedData$act_pred3a, completedData$Recidivist)
+
+roc_ROCR3 <- performance(pred_ROCR3, measure = "tpr", x.measure = "fpr")
+
+# roc_ROCR3a <- performance(pred_ROCR3a, measure = "tpr", x.measure = "fpr")
+
+plot(roc_ROCR3, main = "ROC curve", colorize = T)
+auc_ROCR3 <- performance(pred_ROCR3, measure = "auc")
+auc_ROCR3@y.values[[1]]
+
+# auc_ROCR3a <- performance(pred_ROCR3a, measure = "auc")
+
+# [1] 0.6758908
+
+
+# AUC with OneYearRecidivism
+
+pred_ROCR4 <- prediction(completedData$act_pred3, completedData$OneYearRecidivism)
+
+roc_ROCR4 <- performance(pred_ROCR4, measure = "tpr", x.measure = "fpr")
+
+plot(roc_ROCR4, main = "ROC curve", colorize = T)
+auc_ROCR4 <- performance(pred_ROCR4, measure = "auc")
+auc_ROCR4@y.values[[1]]
+
+# [1] 0.6331247
+
+
+
+
+
+conmat3 <- table(completedData$Recidivist, completedData$act_pred3 > 0.5)
+
+conmat3
+
+#    FALSE TRUE
+#  0   369  172
+#  1   269  467
+
+prop.table(conmat3, 1)
+
+#        FALSE      TRUE
+#  0 0.6820702 0.3179298
+#  1 0.3654891 0.6345109
+
+
+
+
+# ####################
+
+
+# Create prototype 3-B items
+
+completedData$Family_InadequateSup_act3b <- ifelse(completedData$Family_InadequateSup > 0, 1.5, 0)
+
+completedData$Educ_ProblemPeers_act3b <- ifelse(completedData$Educ_ProblemPeers > 0, 1.5, 0)
+
+completedData$Educ_SchoolyardBehavior_act3b <- ifelse(completedData$Educ_SchoolyardBehavior > 0, 1.75, 0)
+
+completedData$CriminalHistoryDomain_Score_act3b <- ifelse(completedData$CriminalHistoryDomain_Score < 1, 0,
+ifelse(completedData$CriminalHistoryDomain_Score < 4, 0.5, 1))
+
+completedData$Attitude_Antisocial_act3b <- ifelse(completedData$Attitude_Antisocial > 0, 1.75, 0)
+
+completedData$PeerDomain_Score_act3b <- ifelse(completedData$PeerDomain_Score < 2, 0,
+ifelse(completedData$PeerDomain_Score < 4, 1, 2))
+
+completedData$Enrolled_act3b <- ifelse(completedData$Enrolled > 0, 2.25, 0)
+
+completedData$Felony_Interim_Dispos_IO_act3b <- ifelse(completedData$Felony_Interim_Dispos_IO > 0, 2.35, 0)
+
+completedData$Age_act3b <- ifelse(completedData$Age > 16, 1, 0)
+
+completedData$Drugs_act3b <- ifelse(completedData$Drugs > 0, 1.25, 0)
+
+completedData$IsDrugAlcoholAbuse_act3b <- ifelse(completedData$IsDrugAlcoholAbuse > 0, 1, 0)
+
+
+# create a sum score for 3-B
+
+completedData$act_sum3b <-(
+completedData$Family_InadequateSup_act3b +
+completedData$Educ_ProblemPeers_act3b +
+completedData$Educ_SchoolyardBehavior_act3b +
+completedData$CriminalHistoryDomain_Score_act3b +
+completedData$Attitude_Antisocial_act3b +
+completedData$PeerDomain_Score_act3b -
+completedData$Enrolled_act3b -
+completedData$Felony_Interim_Dispos_IO_act3b -
+completedData$Age_act3b +
+completedData$Drugs_act3b +
+completedData$IsDrugAlcoholAbuse_act3b
+)
+
+summary(completedData$act_sum3b)
+completedData$act_pred3 <- ifelse(completedData$act_sum3 < 4, 0 , 1)
+
+
+pred_ROCR3 <- prediction(completedData$act_pred3, completedData$Recidivist)
+
+roc_ROCR3 <- performance(pred_ROCR3, measure = "tpr", x.measure = "fpr")
+
+plot(roc_ROCR3, main = "ROC curve", colorize = T)
+auc_ROCR3 <- performance(pred_ROCR3, measure = "auc")
+auc_ROCR3@y.values[[1]]
+
+# [1] 0.6569871
+
+
+
+# create a sum score without dispo item
+
+completedData$act_sum3b <-(
+completedData$Family_InadequateSup_act3 +
+completedData$Educ_ProblemPeers_act3 +
+completedData$Educ_SchoolyardBehavior_act3 +
+completedData$CriminalHistoryDomain_Score_act3 +
+completedData$Attitude_Antisocial_act3 +
+completedData$PeerDomain_Score_act3 -
+completedData$Enrolled_act3 -
+completedData$Felony_Interim_Dispos_IO_act3 -
+completedData$Age_act3 +
+completedData$Drugs_act3 +
+completedData$IsDrugAlcoholAbuse_act3
+)
+
+
+
+
+completedData$act_pred3b <- ifelse(completedData$act_sum3b < 3, 0 , 1)
+
+pred_ROCR3b <- prediction(completedData$act_pred3b, completedData$Recidivist)
+
+roc_ROCR3b <- performance(pred_ROCR3b, measure = "tpr", x.measure = "fpr")
+
+auc_ROCR3b <- performance(pred_ROCR3b, measure = "auc")
+auc_ROCR3b@y.values[[1]]
+
+
+# ******************************************************************************************************************************************************************************************************************
+
+library(dplyr)
+library(ROCR)
+
+cpworkgroup <- read.csv(file.choose(), header = T)
+
+glimpse(cpworkgroup)
+
+names(cpworkgroup)
+# [1] "WG_ID"           "WG_TYPE_CD"      "WG_TYPE"         "START_DT"        "END_DT"          "REASON_ENDED_CD" "reason.WG.ended" "SSIS.ID"
+
+# aggcpwdf
+
+glimpse(aggcpw)
+
+aggcpw <- t(aggcpw)
+glimpse(aggcpw)
+
+aggcpwdf <- as.data.frame(aggcpw)
+
+write.csv(aggcpwdf, file = "aggcpwdf.csv")
+
+
+cwworkgroup <- read.csv(file.choose(), header = T)
+
+glimpse(cwworkgroup)
+
+aggcww <- aggregate(cwworkgroup,
+                by = list(cwworkgroup$SSIS.ID),
+                FUN = length)
+
+glimpse(aggcww)
+
+aggcwwdf <- as.data.frame(aggcww)
+
+head(aggcwwdf)
+
+write.csv(aggcwwdf, file = "aggcwwdf.csv")
+
+
+
+placements <- read.csv(file.choose(), header = T)
+
+glimpse(placements)
+head(placements)
+
+aggplace <- aggregate(placements,
+                by = list(placements$SSIS_ID),
+                FUN = length)
+
+glimpse(aggplace)
+
+
+
+aggplacedf <- as.data.frame(aggplace)
+
+aggplacedf$SSIS.ID <- aggplacedf$Group.1
+
+aggplacedf <- select(aggplacedf, -SSIS_ID)
+
+head(aggplacedf)
+
+write.csv(aggplacedf, file = "aggplacedf.csv")
+
+
+client_id <- read.csv(file.choose(), header = T)
+
+client_id <-  select(client_id, -3:-6)
+
+
+aggcpwdf<-  select(aggcpwdf, -SSIS.ID)
+
+aggcwwdf<-  select(aggcwwdf, -SSIS.ID)
+
+
+merged_df <-merge(x=client_id,y=aggcpwdf,by="SSIS.ID",all.x=TRUE)
+head(merged_df)
+
+merged_df <-merge(x=merged_df,y=aggcwwdf,by="SSIS.ID",all.x=TRUE)
+head(merged_df)
+
+merged_df <-merge(x=merged_df,y=aggplacedf,by="SSIS.ID",all.x=TRUE)
+head(merged_df)
+
+
+write.csv(merged_df, file = "merged_cw_df.csv")
+
+# ---------------------
+merged_df <- read.csv(file.choose(), header = T)
+
+completedData$ID <- completedData$X
+completedData <- select(completedData, -X)
+
+merged_data <-merge(x=completedData,y=merged_df,by="ID",all.x=TRUE)
+
+write.csv(merged_data, file = "completed_merged.csv")
+
+merged_data <- read.csv(file.choose(), header = T)
+
+
+# ______________________________________________________________________
+
+library(dplyr)
+library(ROCR)
+
+#d[is.na(d)] <- 0
+
+# change non-ones to zeros instead of NAs
+
+merged_data$WG_TYPE_CD.y[is.na(merged_data$WG_TYPE_CD.y)] <- 0
+
+merged_data$CONTPLCMT_START_DT[is.na(merged_data$CONTPLCMT_START_DT)] <- 0
+
+# create item scores
+
+merged_data$Family_InadequateSup_act3 <- ifelse(merged_data$Family_InadequateSup > 0, 1, 0)
+# 0,1
+
+merged_data$Educ_ProblemPeers_act3 <- ifelse(merged_data$Educ_ProblemPeers > 0, 1, 0)
+# 0, 1
+
+merged_data$Educ_SchoolyardBehavior_act3 <- ifelse(merged_data$Educ_SchoolyardBehavior > 0, 2, 0)
+# 0, 1
+
+merged_data$CriminalHistoryDomain_Score_act3 <- ifelse(merged_data$CriminalHistoryDomain_Score < 1, 0,
+ifelse(merged_data$CriminalHistoryDomain_Score < 4, 1, 2))
+# 0 - 5, median = 1.00
+
+merged_data$Attitude_Antisocial_act3 <- ifelse(merged_data$Attitude_Antisocial > 0, 1, 0)
+# 0, 1
+
+
+merged_data$PeerDomain_Score_act3 <- ifelse(merged_data$PeerDomain_Score < 2, 0,
+ifelse(merged_data$PeerDomain_Score < 4, 1, 2))
+# 0 - 4, median = 2.000
+
+merged_data$Enrolled_act3 <- ifelse(merged_data$Enrolled > 0, 3, 0)
+# 0, 1
+
+merged_data$Felony_Interim_Dispos_IO_act3 <- ifelse(merged_data$Felony_Interim_Dispos_IO > 0, 2, 0)
+# 0 - 3, median = 0
+
+merged_data$Age_act3 <- ifelse(merged_data$Age > 16, 1, 0)
+# 11.98 - 19.64, median = 16.53
+
+merged_data$Drugs_act3 <- ifelse(merged_data$Drugs > 0, 1, 0)
+# 0, 1
+
+merged_data$IsDrugAlcoholAbuse_act3 <- ifelse(merged_data$IsDrugAlcoholAbuse > 0, 1, 0)
+# 0, 1
+
+merged_data$cpwg_act3 <- ifelse(merged_data$WG_TYPE_CD.y > 0, 1, 0)
+
+merged_data$placed_act3 <- ifelse(merged_data$CONTPLCMT_START_DT > 1, 1, 0)
+
+# Create sum scores
+merged_data$act_sum3 <-(
+merged_data$Family_InadequateSup_act3 +
+merged_data$Educ_ProblemPeers_act3 +
+merged_data$Educ_SchoolyardBehavior_act3 +
+merged_data$CriminalHistoryDomain_Score_act3 +
+merged_data$Attitude_Antisocial_act3 +
+merged_data$PeerDomain_Score_act3 -
+merged_data$Enrolled_act3 -
+merged_data$Felony_Interim_Dispos_IO_act3 -
+merged_data$Age_act3 +
+merged_data$Drugs_act3 +
+merged_data$IsDrugAlcoholAbuse_act3 +
+merged_data$cpwg_act3 +
+merged_data$placed_act3
+)
+
+# Calculate prediction accuracy. First calculate predictions. Then true positive rate and false positive rate. Then AUC.
+
+pred_ROCR <- prediction(merged_data$act_sum3, merged_data$Recidivist)
+roc_ROCR <- performance(pred_ROCR, measure = "tpr", x.measure = "fpr")
+auc_ROCR <- performance(pred_ROCR, measure = "auc")
+auc_ROCR@y.values[[1]]
+
+write.csv(merged_data, file = "completed_merged.csv")
+
+
+
+# --------------------------
+# Test model with bootstrap sample
+
+iboot <- sample(1:1000(merged_data), replace = TRUE)
+bootdata <- merged_data[iboot,]
+
+bootdata$act_sum_boot <-(
+bootdata$Family_InadequateSup_act3 +
+bootdata$Educ_ProblemPeers_act3 +
+bootdata$Educ_SchoolyardBehavior_act3 +
+bootdata$CriminalHistoryDomain_Score_act3 +
+bootdata$Attitude_Antisocial_act3 +
+bootdata$PeerDomain_Score_act3 -
+bootdata$Enrolled_act3 -
+bootdata$Felony_Interim_Dispos_IO_act3 -
+bootdata$Age_act3 +
+bootdata$Drugs_act3 +
+bootdata$IsDrugAlcoholAbuse_act3 +
+bootdata$cpwg_act3 +
+bootdata$placed_act3
+)
+
+
+pred_ROCR_boot <- prediction(bootdata$act_sum_boot, bootdata$Recidivist)
+roc_ROCR_boot <- performance(pred_ROCR_boot, measure = "tpr", x.measure = "fpr")
+auc_ROCR_boot <- performance(pred_ROCR_boot, measure = "auc")
+auc_ROCR_boot@y.values[[1]]
+# [1] 0.7282735
+
+# Examine levels overall and by race
+
+quantile(merged_data$act_sum3, prob = c(0.3, 0.67, 1.0))
+
+# 30%  67% 100%
+#   2    6   12
+
+
+merged_data$levels <- ifelse(merged_data$act_sum3 < 3, "L", (ifelse(merged_data$act_sum3 > 6, "H", "M")))
+
+table(merged_data$levels)
+
+#  H   L   M
+# 339 479 459
+
+
+black_data<- merged_data[ which(merged_data$Black_AA==1), ]
+white_data<- merged_data[ which(data1$White==1), ]
+
+
+outcome_table <- table(merged_data$act_sum3, merged_data$Recidivist)
+prop.table(outcome_table, 1)
+
+outcome_table_white <- table(white_data$act_sum3, white_data$Recidivist)
+prop.table(outcome_table_white, 1)
+
+
+outcome_table_black <- table(black_data$act_sum3, black_data$Recidivist)
+prop.table(outcome_table_black, 1)
+
+
+orbl_new <- table(merged_data$levels, completedData$Recidivist)
+prop.table(orbl_new, 1)
+
+orbl_black <- table(black_data$levels, black_data$Recidivist)
+prop.table(orbl_black, 1)
+
+orbl_white <- table(white_data$levels, white_data$Recidivist)
+prop.table(orbl_white, 1)
+
+
+table5 <- table(merged_data$act_sum3, data1$White)
+prop.table(table5, 2)
+
+table6 <- table(merged_data$act_sum3, merged_data$Black_AA)
+prop.table(table6, 2)
+
+
+table7 <- table(merged_data$levels)
+prop.table(table7)
+
+table8 <- table(merged_data$act_sum3)
+prop.table(table8)
+
+
+
+
+# *******************************************************
+# Add snap
+
+snapdf <- read.csv(file.choose(), header = T)
+
+merged_data1 <-merge(x=merged_data, y=snapdf,by="ID",all.x=TRUE)
+
+#merged_data1$snap <- merged_data1$SOAP
+
+#merged_data1 <- select(merged_data1 , -S0AP)
+
+write.csv(merged_data1, file = "completed_merged1.csv")
+
+
+merged_data1<- read.csv(file.choose(), header = T)
+
+# create item scores
+
+merged_data1$Family_InadequateSup_act3s <- ifelse(merged_data1$Family_InadequateSup > 0, 1, 0)
+# 0,1
+
+merged_data1$Educ_ProblemPeers_act3s <- ifelse(merged_data1$Educ_ProblemPeers > 0, 1, 0)
+# 0, 1
+
+merged_data1$Educ_SchoolyardBehavior_act3s <- ifelse(merged_data1$Educ_SchoolyardBehavior > 0, 2, 0)
+# 0, 1
+
+merged_data1$CriminalHistoryDomain_Score_act3s <- ifelse(merged_data1$CriminalHistoryDomain_Score < 1, 0,
+ifelse(merged_data1$CriminalHistoryDomain_Score < 4, 1, 2))
+# 0 - 5, median = 1.00
+
+merged_data1$Attitude_Antisocial_act3s <- ifelse(merged_data1$Attitude_Antisocial > 0, 1, 0)
+# 0, 1
+
+
+merged_data1$PeerDomain_Score_act3s <- ifelse(merged_data1$PeerDomain_Score < 2, 0,
+ifelse(merged_data1$PeerDomain_Score < 4, 1, 2))
+# 0 - 4, median = 2.000
+
+merged_data1$Enrolled_act3s <- ifelse(merged_data1$Enrolled > 0, 3, 0)
+# 0, 1
+
+merged_data1$Felony_Interim_Dispos_IO_act3s <- ifelse(merged_data1$Felony_Interim_Dispos_IO > 0, 2, 0)
+# 0 - 3, median = 0
+
+merged_data1$Age_act3s <- ifelse(merged_data1$Age > 16, 1, 0)
+# 11.98 - 19.64, median = 16.53
+
+merged_data1$Drugs_act3s <- ifelse(merged_data1$Drugs > 0, 1, 0)
+# 0, 1
+
+merged_data1$IsDrugAlcoholAbuse_act3s <- ifelse(merged_data1$IsDrugAlcoholAbuse > 0, 1, 0)
+# 0, 1
+
+merged_data1$cpwg_act3s <- ifelse(merged_data1$WG_TYPE_CD.y > 0, 1, 0)
+
+merged_data1$placed_act3s <- ifelse(merged_data1$CONTPLCMT_START_DT > 1, 1, 0)
+
+merged_data1$snap_act3s <- ifelse(merged_data1$snap > 0, 1, 0)
+
+# Create sum scores
+merged_data1$act_sum3s <-(
+merged_data1$Family_InadequateSup_act3s +
+merged_data1$Educ_ProblemPeers_act3s +
+merged_data1$Educ_SchoolyardBehavior_act3s +
+merged_data1$CriminalHistoryDomain_Score_act3s +
+merged_data1$Attitude_Antisocial_act3s +
+merged_data1$PeerDomain_Score_act3s -
+merged_data1$Enrolled_act3s -
+merged_data1$Felony_Interim_Dispos_IO_act3s -
+merged_data1$Age_act3s +
+merged_data1$Drugs_act3s +
+merged_data1$IsDrugAlcoholAbuse_act3s +
+merged_data1$cpwg_act3s +
+merged_data1$placed_act3s +
+merged_data1$snap_act3s
+)
+
+
+pred_ROCR_3s <- prediction(merged_data1$act_sum3s, merged_data1$Recidivist)
+roc_ROCR_3s <- performance(pred_ROCR_3s, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3s <- performance(pred_ROCR_3s, measure = "auc")
+auc_ROCR_3s@y.values[[1]]
+# [1] 0.73493
+
+# [1] 0.7282735
+
+
+# ***************************************************
+# Test HHS models for ORBL and race
+
+# Examine levels overall and by race
+
+
+
+merged_data1$levels <- ifelse(merged_data1$act_sum3s < 3, "L", (ifelse(merged_data1$act_sum3s > 6, "H", "M")))
+
+quantile(merged_data1$act_sum3, prob = c(0.3, 0.67, 1.0))
+
+# 30%  67% 100%
+#   2    6   12
+
+#table(merged_data1$levels)
+
+black_data<- merged_data1[ which(merged_data1$Black_AA==1), ]
+white_data<- merged_data1[ which(data1$White==1), ]
+
+
+
+outcome_table <- table(merged_data1$act_sum3s, merged_data1$Recidivist)
+prop.table(outcome_table, 1)
+
+outcome_table_white <- table(white_data$act_sum3s, white_data$Recidivist)
+prop.table(outcome_table_white, 1)
+
+
+outcome_table_black <- table(black_data$act_sum3s, black_data$Recidivist)
+prop.table(outcome_table_black, 1)
+
+
+orbl_new <- table(merged_data1$levels, completedData$Recidivist)
+prop.table(orbl_new, 1)
+
+orbl_black <- table(black_data$levels, black_data$Recidivist)
+prop.table(orbl_black, 1)
+
+orbl_white <- table(white_data$levels, white_data$Recidivist)
+prop.table(orbl_white, 1)
+
+
+table5 <- table(merged_data1$act_sum3s, data1$White)
+prop.table(table5, 2)
+
+table6 <- table(merged_data1$act_sum3s, merged_data1$Black_AA)
+prop.table(table6, 2)
+
+
+table7 <- table(merged_data1$levels)
+prop.table(table7)
+
+table8 <- table(merged_data1$act_sum3s)
+prop.table(table8)
+
+
+#**********************************************
+
+#-------------------------
+
+merged_data$new_var_sum <- (
+merged_data$cpwg_act3 +
+merged_data$Educ_SchoolyardBehavior_act3 + merged_data$PeerDomain_Score_act3 + merged_data$CriminalHistoryDomain_Score_act3 +
+merged_data$placed_act3 -
+merged_data$Enrolled_act3 -
+merged_data$Age_act3)
+
+pred_ROCR_new_data <- prediction(merged_data$new_var_sum, merged_data$Recidivist)
+roc_ROCR3_new_data <- performance(pred_ROCR_new_data , measure = "tpr", x.measure = "fpr")
+auc_ROCR_new_data <- performance(pred_ROCR_new_data, measure = "auc")
+auc_ROCR_new_data@y.values[[1]]
+
+
+
+summary(merged_data$new_var_sum)
+table(merged_data$new_var_sum)
+merged_data$act_pred_new_var <- ifelse(merged_data$new_var_sum > 2, 1 , 0)
+table(merged_data$act_pred_new_var)
+
+
+pred_ROCR_new_var <- prediction(merged_data$new_var_sum, merged_data$Recidivist)
+
+roc_ROCR_new_var <- performance(pred_ROCR_new_var, measure = "tpr", x.measure = "fpr")
+
+# plot(roc_ROCR3, main = "ROC curve", colorize = T)
+auc_ROCR_NV <- performance(pred_ROCR_new_var, measure = "auc")
+auc_ROCR_NV@y.values[[1]]
+
+
+
+cor.test(merged_data$Black_AA, merged_data$new_var_sum)
+
+
+library(Hmisc)
+
+
+y <- data.frame(merged_data1$Family_InadequateSup_act3s,
+merged_data1$Educ_ProblemPeers_act3s,
+merged_data1$Educ_SchoolyardBehavior_act3s,
+merged_data1$CriminalHistoryDomain_Score_act3s,
+merged_data1$Attitude_Antisocial_act3s,
+merged_data1$PeerDomain_Score_act3s,
+merged_data1$Enrolled_act3s,
+merged_data1$Felony_Interim_Dispos_IO_act3s,
+merged_data1$Age_act3s,
+merged_data1$Drugs_act3s,
+merged_data1$IsDrugAlcoholAbuse_act3s,
+merged_data1$cpwg_act3s,
+merged_data1$placed_act3s,
+merged_data1$snap_act3s)
+
+rcorr(as.matrix(y))
+
+
+
+#Prototype 4
+
+merged_data1 <- read.csv(file.choose(), header = T)
+
+
+# create item scores
+
+merged_data1$Family_InadequateSup_act3s <- ifelse(merged_data1$Family_InadequateSup > 0, 1, 0)
+# 0,1
+
+merged_data1$Educ_ProblemPeers_act3s <- ifelse(merged_data1$Educ_ProblemPeers > 0, 1, 0)
+# 0, 1
+
+merged_data1$Educ_SchoolyardBehavior_act3s <- ifelse(merged_data1$Educ_SchoolyardBehavior > 0, 2, 0)
+# 0, 1
+
+merged_data1$CriminalHistoryDomain_Score_act3s <- ifelse(merged_data1$CriminalHistoryDomain_Score < 1, 0,
+ifelse(merged_data1$CriminalHistoryDomain_Score < 4, 1, 2))
+# 0 - 5, median = 1.00
+
+merged_data1$Attitude_Antisocial_act3s <- ifelse(merged_data1$Attitude_Antisocial > 0, 1, 0)
+# 0, 1
+
+
+merged_data1$PeerDomain_Score_act3s <- ifelse(merged_data1$PeerDomain_Score < 2, 0,
+ifelse(merged_data1$PeerDomain_Score < 4, 1, 2))
+# 0 - 4, median = 2.000
+
+merged_data1$Enrolled_act3s <- ifelse(merged_data1$Enrolled > 0, 3, 0)
+# 0, 1
+
+merged_data1$Felony_Interim_Dispos_IO_act3s <- ifelse(merged_data1$Felony_Interim_Dispos_IO > 0, 2, 0)
+# 0 - 3, median = 0
+
+merged_data1$Age_act3s <- ifelse(merged_data1$Age > 16, 1, 0)
+# 11.98 - 19.64, median = 16.53
+
+merged_data1$Drugs_act3s <- ifelse(merged_data1$Drugs > 0, 1, 0)
+# 0, 1
+
+merged_data1$IsDrugAlcoholAbuse_act3s <- ifelse(merged_data1$IsDrugAlcoholAbuse > 0, 1, 0)
+# 0, 1
+
+merged_data1$cpwg_act3s <- ifelse(merged_data1$WG_TYPE_CD.y > 0, 1, 0)
+
+merged_data1$placed_act3s <- ifelse(merged_data1$CONTPLCMT_START_DT > 1, 1, 0)
+
+
+# Create sum scores
+merged_data1$act_sum3s <-(
+merged_data1$Family_InadequateSup_act3s +
+merged_data1$Educ_ProblemPeers_act3s +
+merged_data1$Educ_SchoolyardBehavior_act3s +
+merged_data1$CriminalHistoryDomain_Score_act3s +
+merged_data1$Attitude_Antisocial_act3s +
+merged_data1$PeerDomain_Score_act3s -
+merged_data1$Enrolled_act3s -
+merged_data1$Felony_Interim_Dispos_IO_act3s -
+merged_data1$Age_act3s +
+merged_data1$Drugs_act3s +
+merged_data1$IsDrugAlcoholAbuse_act3s +
+merged_data1$cpwg_act3s +
+merged_data1$placed_act3s
+)
+
+merged_data2$act_sum3s <-0
+# Create sum scores
+merged_data2$act_sum3s <-(
+merged_data2$Family_InadequateSup_act3s +
+merged_data2$Educ_ProblemPeers_act3s +
+merged_data2$Educ_SchoolyardBehavior_act3s +
+merged_data2$CriminalHistoryDomain_Score_act3s +
+merged_data2$Attitude_Antisocial_act3s +
+merged_data2$PeerDomain_Score_act3s -
+merged_data2$Enrolled_act3s -
+merged_data2$Felony_Interim_Dispos_IO_act3s -
+merged_data2$Age_act3s +
+merged_data2$Drugs_act3s +
+merged_data2$IsDrugAlcoholAbuse_act3s +
+merged_data2$cpwg_act3s +
+merged_data2$placed_act3s
+)
+
+
+pred_ROCR_3s <- prediction(merged_data1$act_sum3s, merged_data1$Recidivist)
+roc_ROCR_3s <- performance(pred_ROCR_3s, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3s <- performance(pred_ROCR_3s, measure = "auc")
+auc_ROCR_3s@y.values[[1]]
+
+
+pred_ROCR_3s1 <- prediction(merged_data1$act_sum3s, merged_data1$OneYearRecidivism)
+roc_ROCR_3s1 <- performance(pred_ROCR_3s1, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3s1 <- performance(pred_ROCR_3s1, measure = "auc")
+auc_ROCR_3s1@y.values[[1]]
+
+pred_ROCR_3s2 <- prediction(merged_data1$act_sum3s, data1$TwoYearRecidivism)
+roc_ROCR_3s2 <- performance(pred_ROCR_3s2, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3s2 <- performance(pred_ROCR_3s2, measure = "auc")
+auc_ROCR_3s2@y.values[[1]]
+
+
+
+
+
+black_data<- merged_data1[ which(merged_data1$Black_AA==1), ]
+white_data<- merged_data1[ which(data1$White==1), ]
+
+pred_ROCR_3sb <- prediction(black_data$act_sum3s, black_data$Recidivist)
+roc_ROCR_3sb <- performance(pred_ROCR_3sb, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3sb <- performance(pred_ROCR_3sb, measure = "auc")
+auc_ROCR_3sb@y.values[[1]]
+
+
+pred_ROCR_3sw <- prediction(white_data$act_sum3s, white_data$Recidivist)
+roc_ROCR_3sw <- performance(pred_ROCR_3sw, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3sw <- performance(pred_ROCR_3sw, measure = "auc")
+auc_ROCR_3sw@y.values[[1]]
+
+
+
+merged_data1$levels <- ifelse(merged_data1$act_sum3s < 3, "L", (ifelse(merged_data1$act_sum3s > 6, "H", "M")))
+
+quantile(merged_data1$act_sum3, prob = c(0.3, 0.67, 1.0))
+
+
+
+outcomes <- read.csv(file.choose(), header = T)
+
+merged_data1 <- merge(x=merged_data1,y=outcomes,by="ID",all.x=TRUE)
+
+
+pred_ROCR_3sf <- prediction(merged_data1$act_sum3s, merged_data2$FEL)
+roc_ROCR_3sf <- performance(pred_ROCR_3sf, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3sf <- performance(pred_ROCR_3sf, measure = "auc")
+auc_ROCR_3sf@y.values[[1]]
+
+pred_ROCR_3sa <- prediction(merged_data1$act_sum3s, merged_data2$assault_weapons)
+roc_ROCR_3sa <- performance(pred_ROCR_3sa, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3sa <- performance(pred_ROCR_3sa, measure = "auc")
+auc_ROCR_3sa@y.values[[1]]
+
+pred_ROCR_3sa <- prediction(merged_data1$act_sum3s, merged_data1$assault_weapons)
+roc_ROCR_3sa <- performance(pred_ROCR_3sa, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3sa <- performance(pred_ROCR_3sa, measure = "auc")
+auc_ROCR_3sa@y.values[[1]]
+
+pred_ROCR_3sa <- prediction(merged_data1$act_sum3s, merged_data1$Any_Person)
+roc_ROCR_3sa <- performance(pred_ROCR_3sa, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3sa <- performance(pred_ROCR_3sa, measure = "auc")
+auc_ROCR_3sa@y.values[[1]]
+
+#----------------------
+#-----------------------------
+#Subset checks
+
+
+black_data$levels <- ifelse(black_data$act_sum3s < 3, "L", (ifelse(black_data$act_sum3s > 6, "H", "M")))
+table_rec <- table(black_data$Recidivist, black_data$levels)
+prop.table(table_rec, 2)
+
+
+white_data$levels <- ifelse(white_data$act_sum3s < 3, "L", (ifelse(white_data$act_sum3s > 6, "H", "M")))
+table_rec <- table(white_data$Recidivist, white_data$levels)
+prop.table(table_rec, 2)
+
+
+
+male_data<- merged_data1[ which(merged_data1$Male==1), ]
+girl_data<- merged_data1[ which(merged_data1$Male==0), ]
+
+
+outcome_table_boy <- table(male_data$act_sum3s, male_data$Recidivist)
+prop.table(outcome_table_boy, 1)
+
+outcome_table_girl <- table(girl_data$act_sum3s, girl_data$Recidivist)
+prop.table(outcome_table_girl, 1)
+
+orbl_boy <- table(male_data$levels, male_data$Recidivist)
+prop.table(orbl_boy, 1)
+
+orbl_girl <- table(girl_data$levels, girl_data$Recidivist)
+prop.table(orbl_girl, 1)
+
+boy_dist_table <- table(merged_data1$Male, merged_data1$act_sum3s)
+prop.table(boy_dist_table, 1)
+
+
+pred_ROCR_3s <- prediction(male_data$act_sum3s, male_data$Recidivist)
+roc_ROCR_3s <- performance(pred_ROCR_3s, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3s <- performance(pred_ROCR_3s, measure = "auc")
+auc_ROCR_3s@y.values[[1]]
+
+pred_ROCR_3s <- prediction(girl_data$act_sum3s, girl_data$Recidivist)
+roc_ROCR_3s <- performance(pred_ROCR_3s, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3s <- performance(pred_ROCR_3s, measure = "auc")
+auc_ROCR_3s@y.values[[1]]
+
+
+
+merged_data1$older <- ifelse(merged_data1$Age >17.9, 1, 0)
+
+table(merged_data1$older)
+
+
+older_data <- merged_data1[ which(merged_data1$older ==1), ]
+younger_data <- merged_data1[ which(merged_data1$older ==0), ]
+
+outcome_table_older <- table(older_data$act_sum3s, older_data$Recidivist)
+prop.table(outcome_table_older, 1)
+
+outcome_table_younger <- table(younger_data$act_sum3s, younger_data$Recidivist)
+prop.table(outcome_table_younger, 1)
+
+
+orbl_older <- table(older_data$levels, older_data$Recidivist)
+prop.table(orbl_older, 1)
+
+orbl_younger <- table(younger_data$levels, younger_data$Recidivist)
+prop.table(orbl_younger, 1)
+
+age_dist_table <- table(merged_data1$older, merged_data1$act_sum3s)
+prop.table(age_dist_table, 1)
+
+pred_ROCR_3s <- prediction(older_data$act_sum3s, older_data$Recidivist)
+roc_ROCR_3s <- performance(pred_ROCR_3s, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3s <- performance(pred_ROCR_3s, measure = "auc")
+auc_ROCR_3s@y.values[[1]]
+
+pred_ROCR_3s <- prediction(younger_data$act_sum3s, younger_data$Recidivist)
+roc_ROCR_3s <- performance(pred_ROCR_3s, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3s <- performance(pred_ROCR_3s, measure = "auc")
+auc_ROCR_3s@y.values[[1]]
+
+
+
+sex_offense <- read.csv(file.choose(), header = T)
+
+merged_data1<- merge(x=merged_data1,y=sex_offense,by="ID",all.x=TRUE)
+
+sex_offense_data <- merged_data1[ which(merged_data1$Sex_offense ==1), ]
+not_sex_offense_data <- merged_data1[ which(merged_data1$Sex_offense ==0), ]
+
+
+outcome_table_sex_offense <- table(sex_offense_data$act_sum3s, sex_offense_data$Recidivist)
+prop.table(outcome_table_sex_offense, 1)
+
+outcome_table_not_sex_offense <- table(not_sex_offense_data$act_sum3s, not_sex_offense_data$Recidivist)
+prop.table(outcome_table_not_sex_offense, 1)
+
+orbl_sex_offense <- table(sex_offense_data$levels, sex_offense_data$Recidivist)
+prop.table(orbl_sex_offense, 1)
+
+orbl_not_sex_offense <- table(not_sex_offense_data$levels, not_sex_offense_data$Recidivist)
+prop.table(orbl_not_sex_offense, 1)
+
+
+sex_offense_dist_table <- table(merged_data1$Sex_offense, merged_data1$act_sum3s)
+prop.table(sex_offense_dist_table, 1)
+
+
+pred_ROCR_3s <- prediction(sex_offense_data$act_sum3s, sex_offense_data$Recidivist)
+roc_ROCR_3s <- performance(pred_ROCR_3s, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3s <- performance(pred_ROCR_3s, measure = "auc")
+auc_ROCR_3s@y.values[[1]]
+
+pred_ROCR_3s <- prediction(not_sex_offense_data$act_sum3s, not_sex_offense_data$Recidivist)
+roc_ROCR_3s <- performance(pred_ROCR_3s, measure = "tpr", x.measure = "fpr")
+auc_ROCR_3s <- performance(pred_ROCR_3s, measure = "auc")
+auc_ROCR_3s@y.values[[1]]
+
+
+
+write.csv(merged_data1, file = "merged_data1.csv")
+
+
+
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+summary(data1$OneYearRecidivism)
+
+table_blackrecid <- table(data1$OneYearRecidivism, data1$Black)
+prop.table(table_blackrecid, 2)
+
+table_whiterecid <- table(data1$OneYearRecidivism, data1$White)
+prop.table(table_whiterecid, 2)
+
+summary(data1$Recidivist)
+
+table_whiteRecidivist <- table(data1$Recidivist, data1$Black)
+prop.table(table_whiteRecidivist , 2)
+
+table_whiteRecidivist <- table(data1$Recidivist, data1$White)
+prop.table(table_whiteRecidivist , 2)
+
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+library(vcd)
+library(mice)
+library(dplyr)
+library(VIM)
+library(lattice)
+library(ROCR)
+library(caret)
+library(rpart)
+library(epiDisplay)
+
+cohort2 <- read.csv(file.choose(), header = T)
+HHSClientMatch <- read.csv(file.choose(), header = T)
+CPWorkgroupsFinal <- read.csv(file.choose(), header = T)
+ContinuousPlacementsFinal <- read.csv(file.choose(), header = T)
+PlacementDetailsFinal  <- read.csv(file.choose(), header = T)
+
+
+aggcpw <- aggregate(CPWorkgroupsFinal,
+                by = list(CPWorkgroupsFinal$ID),
+FUN = mean)
+
+aggcpwdf <- as.data.frame(aggcpw)
+
+aggcpw$intaked <- ifelse(aggcpw$intake>0, 1, 0)
+aggcpw$assessmentd <- ifelse(aggcpw$assessment>0, 1, 0)
+aggcpw$case_managementd <- ifelse(aggcpw$case_management>0, 1, 0)
+
+
+step1<- merge(x=cohort2,y=aggcpw,by="ID",all.x=TRUE)
+
+
+aggplace <- aggregate(ContinuousPlacementsFinal,
+                by = list(ContinuousPlacementsFinal$ID),
+                FUN = mean)
+
+step2<- merge(x=step1,y=aggplace,by="ID",all.x=TRUE)
+
+
+aggplaced<- aggregate(PlacementDetailsFinal,
+                by = list(PlacementDetailsFinal$ID),
+                FUN = mean)
+
+step3<- merge(x=step2,y=aggplaced,by="ID",all.x=TRUE)
+
+write.csv(step3, file = "step3.csv")
+
+
+
+
+step4= subset(step3, select=c(
+"Family_InadequateSup",
+"Educ_ProblemPeers",
+"Educ_SchoolyardBehavior",
+"CriminalHistoryDomain_Score",
+"Attitude_Antisocial",
+"PeerDomain_Score",
+"Felony_Interim_Sum",
+"enrolled",
+"Age_at_Offense",
+"drugs",
+"IsDrugAlcoholAbuse",
+"cpworkgroup",
+"placement",
+"placementdetails"))
+
+
+
+
+
+
+step3$enrolled <- revalue(step3$Status, c("Enrolled"="1", "Expelled"="0", "Graduated"="0", "Transferred"="0", "Withdrew"="0"))
+
+step3$drugs <- mapvalues(step3$Initial_General_Offense_Description, from = c("Arson", "Assault", "Burglary", "Crim. Veh. Injury", "Drugs", "DWI", "Escape", "Forgery", "Homicide", "Juv. Alcohol Offender", "Juv. Status Offense", "Kidnapping", "Obscenity", "Other", "Property Dmg/Trespass", "Rec. Stolen Property", "Robbery", "Sex Offense", "Theft", "Traffic/Accident", "Violate Protection Order", "Weapons"), to = c("0", "0", "0", "0", "1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"))
+
+
+
+step3$Felony <- mapvalues(step3$Initial_Degree_Type_Desc, from = c("Felony", "Gross Misdemeanor", "Misdemeanor"), to = c("1", "0", "0"))
+
+step3$misd <- mapvalues(step3$Initial_Degree_Type_Desc, from = c("Felony", "Gross Misdemeanor", "Misdemeanor"), to = c("0", "0", "1"))
+
+ summary(step3$Initial_Degree_Type_Desc)
+
+
+
+write.csv(step4, file = "step4.csv")
+
+step4a <- read.csv(file.choose(), header = T)
+
+
+
+# create item scores
+
+step4a$Family_InadequateSup_act <-
+ ifelse(step4a$Family_InadequateSup > 0, 1, 0)
+# 0,1
+
+step4a$Educ_ProblemPeers_act <-
+ ifelse(step4a$Educ_ProblemPeers > 0, 1, 0)
+# 0, 1
+
+step4a$Educ_SchoolyardBehavior_act <- ifelse(step4a$Educ_SchoolyardBehavior > 0, 2, 0)
+# 0, 1
+
+step4a$CrimilHistoryDomain_Score_act <- ifelse(step4a$CrimilHistoryDomain_Score < 1, 0,
+ifelse(step4a$CrimilHistoryDomain_Score < 4, 1, 2))
+# 0 - 5, median = 1.00
+
+step4a$Attitude_Antisocial_act <-
+ ifelse(step4a$Attitude_Antisocial > 0, 1, 0)
+# 0, 1
+
+step4a$PeerDomain_Score <-
+ifelse(step4a$PeerDomain_Score < 2, 0,
+ifelse(step4a$PeerDomain_Score < 4, 1, 2))
+# 0 - 4, median = 2.000
+
+step4a$Enrolled_act <-
+ ifelse(step4a$enrolled > 0, 3, 0)
+# 0, 1
+
+step4a$Felony_Interim <-
+ifelse(step4a$Felony_Interim_Sum > 0, 2, 0)
+# 0 - 3, median = 0
+
+step4a$Age_act <-
+ ifelse(step4a$Age_at_Offense > 16, 1, 0)
+# 11.98 - 19.64, median = 16.53
+
+step4a$Drugs_act <-
+ ifelse(step4a$drugs > 0, 1, 0)
+# 0, 1
+
+step4a$IsDrugAlcoholAbuse_act <-
+ ifelse(step4a$IsDrugAlcoholAbuse > 0, 1, 0)
+# 0, 1
+
+step4a$cpwg_act <-
+ ifelse(step4a$cpworkgroup > 0, 1, 0)
+
+step4a$placement_act <-
+ ifelse(step4a$placement > 0, 3, 0)
+
+
+
+
+# Create sum scores
+step4a$act_sum <-(
+step4a$Family_InadequateSup_act +
+step4a$Educ_ProblemPeers_act +
+step4a$Educ_SchoolyardBehavior_act +
+step4a$CrimilHistoryDomain_Score_act +
+step4a$Attitude_Antisocial_act +
+step4a$PeerDomain_Score -
+step4a$Enrolled_act -
+step4a$Felony_Interim -
+step4a$Age_act +
+step4a$IsDrugAlcoholAbuse_act +
+step4a$cpwg_act +
+step4a$placement_act
+)
+
+step4a <- read.csv(file.choose(), header = T)
+
+
+
+pred_ROCR <- prediction(step4a$act_sum, step4a$one_two_recid)
+roc_ROCR <- performance(pred_ROCR, measure = "tpr", x.measure = "fpr")
+
+auc_ROCR <- performance(pred_ROCR, measure = "auc")
+auc_ROCR@y.values[[1]]
+
+
+step4a<- read.csv(file.choose(), header = T)
+
+
+cor.test(step4a$one_two_recid, step4a$Family_InadequateSup)
+
+cor.test(step4a$one_two_recid, step4a$Educ_ProblemPeers)
+
+cor.test(step4a$one_two_recid, step4a$Educ_SchoolyardBehavior)
+
+cor.test(step4a$one_two_recid, step4a$CrimilHistoryDomain_Score)
+
+cor.test(step4a$one_two_recid, step4a$Attitude_Antisocial)
+
+cor.test(step4a$one_two_recid, step4a$PeerDomain_Score)
+
+cor.test(step4a$one_two_recid, step4a$enrolled)
+
+cor.test(step4a$one_two_recid, step4a$Felony_Interim_Sum)
+
+cor.test(step4a$one_two_recid, step4a$Age_at_Offense)
+
+cor.test(step4a$one_two_recid, step4a$drugs)
+
+cor.test(step4a$one_two_recid, step4a$IsDrugAlcoholAbuse)
+
+cor.test(step4a$one_two_recid, step4a$cpworkgroup)
+
+cor.test(step4a$one_two_recid, step4a$placement)
